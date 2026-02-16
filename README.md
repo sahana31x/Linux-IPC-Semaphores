@@ -22,15 +22,91 @@ Execute the C Program for the desired output.
 
 ## Write a C program that implements a producer-consumer system with two processes using Semaphores.
 
+```
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/sem.h>
+#include <sys/wait.h>
+#include <time.h>
 
+#define NUM_LOOPS 10
+union semun {
+    int val;
+    struct semid_ds *buf;
+    unsigned short int *array;
+    struct seminfo *__buf;
+};
+void wait_semaphore(int sem_set_id) {
+    struct sembuf sem_op;
+    sem_op.sem_num = 0;
+    sem_op.sem_op = -1;
+    sem_op.sem_flg = 0;
+    semop(sem_set_id, &sem_op, 1);
+}
+void signal_semaphore(int sem_set_id) {
+    struct sembuf sem_op;
+    sem_op.sem_num = 0;
+    sem_op.sem_op = 1;
+    sem_op.sem_flg = 0;
+    semop(sem_set_id, &sem_op, 1);
+}
+int main() {
+    int sem_set_id;
+    union semun sem_val;
+    int child_pid;
+    sem_set_id = semget(IPC_PRIVATE, 1, 0600);
+    if (sem_set_id == -1) {
+        perror("semget");
+        exit(1);
+    }
+
+    printf("semaphore set created, semaphore set id '%d'.\n", sem_set_id);
+ sem_val.val = 0;
+    if (semctl(sem_set_id, 0, SETVAL, sem_val) == -1) {
+        perror("semctl");
+        exit(1);
+    }
+child_pid = fork();
+
+    if (child_pid < 0) {
+        perror("fork");
+        exit(1);
+    }
+
+    if (child_pid == 0){
+for (int i = 0; i < NUM_LOOPS; i++) {
+            wait_semaphore(sem_set_id);
+            printf("consumer: '%d'\n", i);
+            fflush(stdout);
+        }
+        exit(0);
+    } else {
+        for (int i = 0; i < NUM_LOOPS; i++) {
+            printf("producer: '%d'\n", i);
+            fflush(stdout);
+            signal_semaphore(sem_set_id);
+            usleep(500000);
+        }
+        wait(NULL);
+        semctl(sem_set_id, 0, IPC_RMID, sem_val);
+        printf("Semaphore removed.\n");
+    }
+
+    return 0;
+}
+```
 
 
 ## OUTPUT
 $ ./sem.o 
+<img width="740" height="852" alt="{06354B54-E847-4B67-8894-083F31D96FD6}" src="https://github.com/user-attachments/assets/b4ca9b69-ca10-4890-8a6d-ea2c68f97bed" />
 
 
 $ ipcs
-
+<img width="1809" height="556" alt="{0C60FA04-31A0-4E24-8CD3-369227AF351B}" src="https://github.com/user-attachments/assets/a3a9e0e3-07a7-44c4-98e6-c4babcec8068" />
 
 
 
